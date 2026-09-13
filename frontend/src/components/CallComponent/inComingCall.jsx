@@ -1,5 +1,5 @@
 import "./inComingCall.css"
-export default function InComingCall({caller , onEndCall , onAnswer}) {
+export default function InComingCall({caller , onEndCall , onAnswer , isVideoCall}) {
     return (
         <>
             <div className="incomingCall-mainContainer">
@@ -10,7 +10,7 @@ export default function InComingCall({caller , onEndCall , onAnswer}) {
                     </div>
                     <div className="incomingCall-info-div">
                         <p>{caller.name}  is Calling....</p>
-                        <p>Video Call</p>
+                        <p>{isVideoCall ? "Video" : "Voice" } Call</p>
                     </div>
                 </div>
                 <div className="incomingCall-button" >

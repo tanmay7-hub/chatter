@@ -145,6 +145,7 @@ function Chat() {
     const handleIncomingCall = (data) => {
       setIncomingCallDetail(data);
       setShowIncomingScreen(true);
+      console.log(data);
       setIsVideoCall(data.isVideoCall);
     };
     socket.on("incoming-call", handleIncomingCall);
@@ -191,26 +192,8 @@ function Chat() {
     }
 
   }, []);
-  const handleClickedVoiceCall = ()=>{
-        setIsVideoCall(false);
-        const data = auth.currentConversation;
-
-    setCallData(data);
-    setIsCaller(true);
-    setShowCallingScreen(true);
-
-    socket.emit("call-user", {
-      to: data.id,
-      caller: {
-        id: auth.loggedInUser.userId,
-        name: auth.loggedInUser.name,
-        profilePic: auth.loggedInUser.profilePic,
-        isVideoCall
-      }
-    });
-  }
-  const handleClickedVideoCall = () => {
-    setIsVideoCall(true);
+  const handleClickedCall = (isVideoCall) => {
+    setIsVideoCall(isVideoCall);
     const data = auth.currentConversation;
 
     setCallData(data);
@@ -809,11 +792,11 @@ function Chat() {
                   </div>
                 </div>
                 <div className="call-icons">
-                  <div className="call-icon"onClick={handleClickedVoiceCall}>
+                  <div className="call-icon"onClick={()=>{handleClickedCall(false)}}>
                     <i class="fa-solid fa-phone"></i>
                   </div>
                   <div
-                    onClick={handleClickedVideoCall}
+                    onClick={()=>{handleClickedCall(true)}}
                     className="call-icon"
                   >
                     <i class="fa-solid fa-video"></i>
@@ -1328,6 +1311,7 @@ function Chat() {
             caller = {incomingCallDetail}
             onEndCall = {handleClickedReject}
             onAnswer = {handleVideoCallAnswer}
+            isVideoCall = {isVideoCall}
           />
         </div>}
 

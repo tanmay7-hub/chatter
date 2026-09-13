@@ -90,8 +90,8 @@ export function VideoCall({ isCaller, currentConvo, onEndCall  , isVideoCall}) {
             try {
                 const stream =
                     await navigator.mediaDevices.getUserMedia({
-                        video: (isVideoCall),
                         audio: true,
+                        video: {isVideoCall},  
                     });
 
                 streamRef.current = stream;
@@ -247,7 +247,7 @@ export function VideoCall({ isCaller, currentConvo, onEndCall  , isVideoCall}) {
                         ref={vidRef}
                         autoPlay
                         playsInline
-                        muted
+                       
                     />
                 )}
             </div>
