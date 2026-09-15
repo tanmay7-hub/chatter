@@ -4,6 +4,7 @@ import Message from "../models/message.model.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import cloudinary from "../config/cloudinary.js";
+
 export const setStatusOnline = async (data) => {
   try {
     await User.UpdateOne({ _id: data.userId }, { $set: { isOnline: true } });
@@ -101,12 +102,10 @@ export const audioUpload = async (req, res) => {
       stream.end(req.file.buffer);
     });
 
-    return res
-      .status(200)
-      .json({
-        msg: "audio uploaded successfully",
-        audioUrl: result.secure_url,
-      });
+    return res.status(200).json({
+      msg: "audio uploaded successfully",
+      audioUrl: result.secure_url,
+    });
   } catch (err) {
     return res.status(500).json({ msg: "error at audio upload endpoint", err });
   }
@@ -127,7 +126,6 @@ export const getGroupMessages = async (req, res) => {
     return res.status(500).json({ msg: "internal server error", err: err });
   }
 };
-
 export const addMembers = async (req, res) => {
   try {
     const { groupId, members } = req.body;
@@ -235,9 +233,9 @@ export const leaveGroup = async (req, res) => {
 
     await group.save();
     return res.status(200).json({
-    msg: "Left group successfully",
-    groupId,
-});
+      msg: "Left group successfully",
+      groupId,
+    });
   } catch (err) {
     return res.status(500).json({ msg: "internal sever error" });
   }
@@ -262,29 +260,85 @@ export const createGroup = async (req, res) => {
     return res.status(500).json({ msg: "internal error", err });
   }
 };
+
+export const updateProfile = async (req, res) => {
+  try {
+    console.log("update profile hit" , req.body);
+    const { username, about , profilePic} = req.body;
+
+    const user = await User.findById(req.user.id);
+
+    if (!user) {
+      return res.status(404).json({
+        msg: "user not found"
+      });
+    }
+
+    if (username !== undefined && username.trim() !== user.username) {
+      const existingUser = await User.findOne({
+        username: username.trim(),
+        _id: { $ne: user._id }
+      });
+
+      if (existingUser) {
+        return res.status(409).json({
+          msg: "username already exists"
+        });
+      }
+
+      user.username = username.trim();
+    }
+
+    if (about !== undefined) {
+      user.about = about.trim();
+    }
+    if(profilePic !== undefined){
+      user.profilePic = profilePic;
+    }
+
+    await user.save();
+
+    return res.status(200).json({
+      msg: "profile updated successfully",
+      user: {
+        userId: user._id,
+        username: user.username,
+        email: user.email,
+        about: user.about,
+        profilePic: user.profilePic
+      }
+    });
+
+  } catch (err) {
+    return res.status(500).json({
+      msg: "error while updating profile",
+      err: err.message
+    });
+  }
+};
 export const getCurrUser = async (req, res) => {
   try {
     const userId = req.user.id;
     const user = await User.findById(userId);
 
-   
     return res.status(200).json({
       userId: user._id,
-      name : user.username,
-      profileImage: user.profilePic,
+      username: user.username,
+      email: user.email,
+      about: user.about,
+      profilePic: user.profilePic,
     });
-
   } catch (err) {
     return res
       .status(500)
       .json({ msg: "some error while finding user", err: err });
   }
 };
+
 export const getChat = async (req, res) => {
   try {
     const { reqId } = req.query;
     const userId = req.user.id;
-    // console.log(reqId);
 
     let allMessages = await Message.find({
       $or: [{ senderId: userId }, { senderId: reqId }],
@@ -293,7 +347,6 @@ export const getChat = async (req, res) => {
     allMessages = allMessages.filter((msg) => {
       return msg.receiverId == reqId || msg.receiverId == userId;
     });
-    // console.log(allMessages);
     return res.status(200).json({
       msg: "messages fetched",
       allMessages,
@@ -305,6 +358,7 @@ export const getChat = async (req, res) => {
     });
   }
 };
+
 export const sendMessage = async (req, res) => {
   try {
     const { message, receiverId } = req.body;
@@ -402,8 +456,10 @@ export const login = async (req, res) => {
     return res.status(200).json({
       token: token,
       userId: user._id,
-      name : user.username,
-      profileImage: user.profilePic,
+      username: user.username,
+      email: user.email,
+      about: user.about,
+      profilePic: user.profilePic,
     });
   } catch (err) {
     return res.status(500).json({

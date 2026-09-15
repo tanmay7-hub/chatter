@@ -32,7 +32,25 @@ export const getCurrUser = createAsyncThunk(
       return thunkAPI.rejectWithValue(err.response);
     }
   }
-)
+);
+export const updateProfile = createAsyncThunk(
+  "auth/updateProfile",
+  async (data, thunkAPI) => {
+    try {
+      const res = await clientServer.patch("/profile", data, {
+        headers: {
+          authorization: "bearer " + localStorage.getItem("token"),
+        },
+      });
+
+      return thunkAPI.fulfillWithValue(res.data);
+    } catch (err) {
+      return thunkAPI.rejectWithValue(
+        err.response?.data || err.message
+      );
+    }
+  }
+);
 export const register = createAsyncThunk(
   "auth/registerUser",
   async (data, thunkAPI) => {
@@ -203,13 +221,13 @@ export const getChat = createAsyncThunk(
         },
         headers: {
           authorization: "bearer " + localStorage.getItem("token"),
-        },
+        }
       });
       return thunkAPI.fulfillWithValue(res.data);
     } catch (err) {
       return thunkAPI.rejectWithValue(err);
     }
-  },
+  }
 );
 export const sendMessage = createAsyncThunk(
   "auth/sendMessage",
@@ -217,7 +235,7 @@ export const sendMessage = createAsyncThunk(
        try{
            const res = await clientServer.post("message/send",{
                 message :data.message,
-               receiverId:data.receiverId
+                receiverId:data.receiverId
            },{
             headers: {
                  authorization: "bearer " + localStorage.getItem("token"),

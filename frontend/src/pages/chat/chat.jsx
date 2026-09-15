@@ -10,6 +10,8 @@ import CallingScreen from "../../components/CallComponent/callingScreen.jsx"
 import { CreateGroup } from "../../components/createGroup/CreateGroup.jsx";
 import { CSSTransition } from "react-transition-group";
 import { VideoCall } from "../../components/CallComponent/VideoCall.jsx";
+import { Settings } from "../../components/setting/Settings.jsx";
+import { Profile } from "../../components/profile/Profile.jsx"
 import {
   getUser,
   getAllGroups,
@@ -78,14 +80,15 @@ function Chat() {
   const [groupPage, setGroupPage] = useState("");
   const [showVideoCall, setShowVideoCall] = useState(false);
   const [isCaller, setIsCaller] = useState(false);
-  const [isVideoCall , setIsVideoCall] = useState(false);
-
+  const [isVideoCall, setIsVideoCall] = useState(false);
 
   const [showCallingScreen, setShowCallingScreen] = useState(false);
   const [incomingCallDetail, setIncomingCallDetail] = useState(null);
   const [showIncomingScreen, setShowIncomingScreen] = useState(false);
   const [callData, setCallData] = useState(null);
   const tabs = ["Chats", "Groups", "Calls"];
+  const [showProfilePage, setShowProfilePage] = useState(false);
+  const [showSettingsPage, setShowSettingsPage] = useState(false);
 
   const handleBack = () => {
     setShowGroupEdit(false);
@@ -156,34 +159,34 @@ function Chat() {
   }, [])
 
   const handleEndCall = () => {
-    
-    setShowCallingScreen(false);   
+
+    setShowCallingScreen(false);
     setShowVideoCall(false);
-    const to = (isCaller == true)  ? callData.id : incomingCallDetail.id;
+    const to = (isCaller == true) ? callData.id : incomingCallDetail.id;
 
     console.log(to);
     socket.emit("call-end", {
       to
     });
-    
-      setIsCaller(false);
-      setCallData(null);
-      
-      setIncomingCallDetail(null);
-      setShowIncomingScreen(false);
-    
+
+    setIsCaller(false);
+    setCallData(null);
+
+    setIncomingCallDetail(null);
+    setShowIncomingScreen(false);
+
   }
 
   useEffect(() => {
     const handleCallEnd = () => {
-        setShowCallingScreen(false);
-        setShowVideoCall(false);
+      setShowCallingScreen(false);
+      setShowVideoCall(false);
 
-        setIsCaller(false);
-        setCallData(null);
-        setIncomingCallDetail(null);
-        setShowIncomingScreen(false);
-      
+      setIsCaller(false);
+      setCallData(null);
+      setIncomingCallDetail(null);
+      setShowIncomingScreen(false);
+
     };
     socket.on("call-end", handleCallEnd);
 
@@ -610,6 +613,7 @@ function Chat() {
                     className="profile-option"
                     onClick={() => {
                       setShowProfileMenu(false);
+                      setShowProfilePage(true);
                     }}
                   >
                     <i class="fa-regular fa-circle-user"></i>
@@ -621,6 +625,7 @@ function Chat() {
                     className="profile-option"
                     onClick={() => {
                       setShowProfileMenu(false);
+                      setShowSettingsPage(true);
                     }}
                   >
                     <i class="fa-solid fa-gear"></i>
@@ -792,11 +797,11 @@ function Chat() {
                   </div>
                 </div>
                 <div className="call-icons">
-                  <div className="call-icon"onClick={()=>{handleClickedCall(false)}}>
+                  <div className="call-icon" onClick={() => { handleClickedCall(false) }}>
                     <i class="fa-solid fa-phone"></i>
                   </div>
                   <div
-                    onClick={()=>{handleClickedCall(true)}}
+                    onClick={() => { handleClickedCall(true) }}
                     className="call-icon"
                   >
                     <i class="fa-solid fa-video"></i>
@@ -813,11 +818,23 @@ function Chat() {
                 {AllMessages !== undefined &&
                   AllMessages.map((m, idx) => {
                     const prev = AllMessages[idx - 1];
+                    const senderId =
+                      typeof m.senderId === "object"
+                        ? m.senderId._id
+                        : m.senderId;
+
+                    const prevSenderId =
+                      idx > 0
+                        ? typeof AllMessages[idx - 1].senderId === "object"
+                          ? AllMessages[idx - 1].senderId._id
+                          : AllMessages[idx - 1].senderId
+                        : null;
 
                     const showSender =
                       conversation.type === "group" &&
-                      (idx === 0 || prev.senderId._id !== m.senderId._id);
-                    return m.senderId._id !== auth.UserId ? (
+                      (idx === 0 || prevSenderId !== senderId);
+                    return senderId !== auth.UserId ? (
+
                       <div className={`group-message-wrapper`}>
                         {conversation.type === "group" && (
                           <div className="group-avatar-container">
@@ -858,7 +875,7 @@ function Chat() {
 
                               <div className="reply-content">
                                 <div className="reply-header">
-                                  {m.replyTo.senderId.toString() === auth.UserId
+                                  {m.replyTo._id.toString() === auth.UserId
                                     ? "You"
                                     : m.replyTo.senderName}
                                 </div>
@@ -887,7 +904,7 @@ function Chat() {
                                   .toLocaleTimeString()
                                   .substring(0, 5)}
 
-                                {m.senderId._id === auth.UserId &&
+                                {senderId === auth.UserId &&
                                   (m.seen ? (
                                     <i className="fa-solid fa-check-double seen-tick"></i>
                                   ) : m.delivered ? (
@@ -922,10 +939,7 @@ function Chat() {
                             y: e.clientY - 65,
                           });
                         }}
-                        className={`${m.senderId._id === auth.UserId
-                          ? "my-message"
-                          : "other-message"
-                          } ${m.audioUrl ? "audio-bubble" : ""}`}
+                        className={`my-message ${m.audioUrl ? "audio-bubble" : ""}`}
                       >
                         {!m.deletedforEveryone && m.replyTo && (
                           <div className="reply-preview">
@@ -933,7 +947,7 @@ function Chat() {
 
                             <div className="reply-content">
                               <div className="reply-header">
-                                {m.replyTo.senderId.toString() === auth.UserId
+                                {m.replyTo._id.toString() === auth.UserId
                                   ? "You"
                                   : m.replyTo.senderName}
                               </div>
@@ -962,7 +976,7 @@ function Chat() {
                                 .toLocaleTimeString()
                                 .substring(0, 5)}
 
-                              {m.senderId._id === auth.UserId &&
+                              {senderId === auth.UserId &&
                                 (m.seen ? (
                                   <i className="fa-solid fa-check-double seen-tick"></i>
                                 ) : m.delivered ? (
@@ -999,10 +1013,6 @@ function Chat() {
                   createPortal(
                     <div
                       className="context-menu"
-                      // style={{
-                      //   left: menuPosition.x,
-                      //   top: menuPosition.y,
-                      // }}
                       style={{
                         position: "fixed",
                         left: `${menuPosition.x}px`,
@@ -1029,10 +1039,6 @@ function Chat() {
                 {reactionMenu &&
                   createPortal(
                     <div
-                      // style={{
-                      //   left: reactionMenu.x,
-                      //   top: reactionMenu.y,
-                      // }}
                       style={{
                         position: "fixed",
                         left: `${reactionMenu.x}px`,
@@ -1274,6 +1280,23 @@ function Chat() {
           )}
         </div>
 
+        {showProfilePage && (
+          <div className="profile-page-overlay">
+            <Profile
+              user={auth.loggedInUser}
+              onClose={() => setShowProfilePage(false)}
+            />
+          </div>
+        )}
+
+        {showSettingsPage && (
+          <div className="profile-page-overlay">
+            <Settings
+              onClose={() => setShowSettingsPage(false)}
+              onLogout={logout}
+            />
+          </div>
+        )}
         {showCreateGroup && (
           <div className="modal-overlay">
             <CreateGroup
@@ -1290,10 +1313,10 @@ function Chat() {
         {showVideoCall && (
           <div className="modal-overlay">
             <VideoCall
-              isCaller = {isCaller}
-              currentConvo = {isCaller ? auth.currentConversation : incomingCallDetail}
-              onEndCall = {handleEndCall}
-              isVideoCall = {isVideoCall}
+              isCaller={isCaller}
+              currentConvo={isCaller ? auth.currentConversation : incomingCallDetail}
+              onEndCall={handleEndCall}
+              isVideoCall={isVideoCall}
             />
           </div>
         )}
@@ -1301,17 +1324,17 @@ function Chat() {
 
         {showCallingScreen && <div className="modal-overlay">
           <CallingScreen
-            caller = {auth.currentConversation}
-            onEndCall = {handleEndCall}
+            caller={auth.currentConversation}
+            onEndCall={handleEndCall}
           />
         </div>}
 
         {showIncomingScreen && <div className="modal-overlay">
           <InComingCall
-            caller = {incomingCallDetail}
-            onEndCall = {handleClickedReject}
-            onAnswer = {handleVideoCallAnswer}
-            isVideoCall = {isVideoCall}
+            caller={incomingCallDetail}
+            onEndCall={handleClickedReject}
+            onAnswer={handleVideoCallAnswer}
+            isVideoCall={isVideoCall}
           />
         </div>}
 

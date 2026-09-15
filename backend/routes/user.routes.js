@@ -17,7 +17,8 @@ import {
   leaveGroup,
   addMembers,
   updateGroup,
-  removeMember
+  removeMember,
+  updateProfile
 } from "../controller/user.controller.js";
 import upload from "../config/multer.js";
 const router = express.Router();
@@ -30,7 +31,7 @@ router.route("/upload-audio").post(upload.single("audio"), audioUpload);
 router.route("/register").post(register);
 router.route("/home").get(home); 
 router.route("/login").post(login);
-router.route("/profile").get(protect, profile); 
+router.route("/profile").get(protect, profile).patch(protect, updateProfile); 
 router.route("/getCurrUser").get(protect, getCurrUser);
 
 

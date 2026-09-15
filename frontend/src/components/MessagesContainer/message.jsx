@@ -18,7 +18,7 @@ function MessagesContainer({AllMessages,handleSend}){
                 return (
                   <div
                     className={
-                      m.senderId ===clickedUser.currUserId ? "other-message" : "my-message"
+                      m.senderId === clickedUser.currUserId ? "other-message" : "my-message"
                     }
                   >
                     <p>{m.message}</p>

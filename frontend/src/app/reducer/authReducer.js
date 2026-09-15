@@ -5,6 +5,7 @@ import {
   getChat,
   sendMessage,
   getCurrUser,
+  updateProfile,
   getAllGroups,
   createGroup,
   getGroupChat,
@@ -18,7 +19,9 @@ const initialState = {
     profilePic:
       "https://upload.wikimedia.org/wikipedia/commons/a/ac/Default_pfp.jpg?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=original",
     userId: undefined,
-    name :undefined,
+    username: undefined,
+    email: undefined,
+    about: undefined,
   },
   isTokenThere: false,
   token: undefined,
@@ -128,9 +131,13 @@ const counterSlice = createSlice({
         state.isLoading = false;
         state.isTokenThere = true;
         state.isLoggedIn = true;
-        state.loggedInUser.profilePic = action.payload.profileImage;
+
+        state.loggedInUser.profilePic = action.payload.profilePic;
         state.loggedInUser.userId = action.payload.userId;
-        state.loggedInUser.name = action.payload.name,
+        state.loggedInUser.username = action.payload.username;
+        state.loggedInUser.email = action.payload.email;
+        state.loggedInUser.about = action.payload.about;
+
         state.UserId = action.payload.userId;
       })
       .addCase(login.rejected, (state, action) => {
@@ -176,7 +183,7 @@ const counterSlice = createSlice({
       .addCase(getChat.fulfilled, (state, action) => {
         state.isLoading = false;
         state.isError = false;
-        console.log("reducer");
+
         state.currChat = action.payload.allMessages;
       })
       .addCase(getChat.rejected, (state, action) => {
@@ -201,11 +208,14 @@ const counterSlice = createSlice({
       .addCase(getCurrUser.fulfilled, (state, action) => {
         state.isError = false;
         state.isLoading = false;
-        state.loggedInUser.profilePic = action.payload.profileImage;
+
+        state.loggedInUser.profilePic = action.payload.profilePic;
         state.loggedInUser.userId = action.payload.userId;
-        state.loggedInUser.name = action.payload.name,
+        state.loggedInUser.username = action.payload.username;
+        state.loggedInUser.email = action.payload.email;
+        state.loggedInUser.about = action.payload.about;
+
         state.UserId = action.payload.userId;
-      
       })
       .addCase(getCurrUser.rejected, (state, action) => {
         state.isError = true;
@@ -272,8 +282,6 @@ const counterSlice = createSlice({
         state.allGroups = state.allGroups.filter(
           (group) => group._id !== action.payload.groupId,
         );
-
-       
       })
       .addCase(removeMember.fulfilled, (state, action) => {
         const updatedGroup = action.payload.group;
@@ -289,8 +297,28 @@ const counterSlice = createSlice({
             profilePic: updatedGroup.groupImage,
           };
         }
+      })
+      .addCase(updateProfile.pending, (state) => {
+        state.isLoading = true;
+        state.isError = false;
+      })
+      .addCase(updateProfile.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.isError = false;
+
+        const user = action.payload.user;
+
+        state.loggedInUser.profilePic = user.profilePic;
+        state.loggedInUser.userId = user.userId;
+        state.loggedInUser.username = user.username;
+        state.loggedInUser.email = user.email;
+        state.loggedInUser.about = user.about;
+      })
+      .addCase(updateProfile.rejected, (state, action) => {
+        state.isLoading = false;
+        state.isError = true;
+        state.message = action.payload?.msg || "Failed to update profile";
       });
-    
   },
 });
 
