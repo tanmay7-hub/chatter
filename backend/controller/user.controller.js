@@ -63,7 +63,7 @@ export const myGroups = async (req, res) => {
   }
 };
 export const photoUpload = async (req, res) => {
-  try {
+  try { 
     if (!req.file) {
       return res.status(400).json({ msg: "image not provided" });
     }
