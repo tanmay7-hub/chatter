@@ -3,7 +3,9 @@ import Group from "../models/group.model.js";
 import Message from "../models/message.model.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import cloudinary from "../config/cloudinary.js";
+
 
 export const setStatusOnline = async (data) => {
   try {
@@ -362,17 +364,23 @@ export const getChat = async (req, res) => {
 export const sendMessage = async (req, res) => {
   try {
     const { message, receiverId } = req.body;
+
     if (!message || !receiverId) {
       return res.status(400).json({ msg: "message is empty" });
     }
     const userId = req.user.id;
-
+    if(!mongoose.Types.ObjectId.isValid(receiverId)){
+      return res.status(400).json({msg : "Authentication Error"});
+    }
+    if(!userId || !mongoose.Types.ObjectId.isValid(userId) ){
+      return res.status(400).json({msg:"Authentication Error"});
+    }
     const newMessage = new Message({
       senderId: userId,
       receiverId,
       message,
     });
-    //will later upgrade it to queue
+
     await User.updateOne({ _id: userId }, { $set: { lastMessage: message } });
     await User.updateOne(
       { _id: receiverId },

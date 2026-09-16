@@ -1,5 +1,6 @@
 import express from "express";
 import { protect } from "../middlewares/auth.js";
+import {loginLimiter , registrationLimiter} from "../middlewares/rateLimiter.js"
 import {
   register,
   home,
@@ -28,9 +29,9 @@ router.route("/message").get(protect, getChat); // all message  between two pers
 router.route("/user/getAllUser").get(protect, getAllUser);
 router.route("/upload-image").post(upload.single("image"), photoUpload);
 router.route("/upload-audio").post(upload.single("audio"), audioUpload);
-router.route("/register").post(register);
+router.route("/register").post(registrationLimiter , register);
 router.route("/home").get(home); 
-router.route("/login").post(login);
+router.route("/login").post(loginLimiter , login);
 router.route("/profile").get(protect, profile).patch(protect, updateProfile); 
 router.route("/getCurrUser").get(protect, getCurrUser);
 
