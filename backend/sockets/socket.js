@@ -4,12 +4,29 @@ import { registerMessageHandlers } from "./message.socket.js";
 import { registerGroupHandlers } from "./group.socket.js";
 import { registerCallHandlers } from "./call.socket.js";
 import { registerPresenceHandlers } from "./presence.socket.js";
-export const initializeSocket = (server) => {
+import { createClient } from "redis";
+import { createAdapter } from "@socket.io/redis-adapter";
+export const initializeSocket = async(server) => {
+
+  const pubClient = createClient({
+    url:process.env.REDIS_URL
+  });
+  const subClient = pubClient.duplicate();
+
+  await pubClient.connect();
+  await subClient.connect();
+
+  const redis_client = createClient({
+     url:process.env.REDIS_URL
+  });
+  
+  await redis_client.connect();
   const io = new Server(server, {
     cors: {
       origin: "*",
     },
   });
+  io.adapter(createAdapter(pubClient , subClient));
     const onlineUser = {};
     const socketToUser = {};
   io.use((socket, next) => {
@@ -32,10 +49,10 @@ export const initializeSocket = (server) => {
 
   io.on("connection", (socket) => {
     console.log(`socket connected: ${socket.id}`);
-    registerMessageHandlers(io, socket, onlineUser, socketToUser);
-    registerGroupHandlers(io, socket, onlineUser, socketToUser);
-    registerCallHandlers(io, socket, onlineUser, socketToUser);
-    registerPresenceHandlers(io, socket, onlineUser, socketToUser);
+    registerMessageHandlers(io, socket,  socketToUser , redis_client);
+    registerGroupHandlers(io, socket,  redis_client);
+    registerCallHandlers(io, socket,  redis_client);
+    registerPresenceHandlers(io, socket,  socketToUser , redis_client);
   });
 
   return io;

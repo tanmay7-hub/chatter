@@ -1,17 +1,20 @@
 import Message from "../models/message.model.js";
 import User from "../models/user.model.js";
 import mongoose from "mongoose";
-
-export const registerMessageHandlers = (io, socket, onlineUser, socketToUser) => {
-
+export const registerMessageHandlers = (
+  io,
+  socket,
+  socketToUser,
+  redis_client,
+) => {
   socket.on("chat-opened", async (data) => {
-    const {senderId} = data;
+    const { senderId } = data;
     const receiverId = socketToUser[socket.id];
-    
-    if(!senderId){
+
+    if (!senderId) {
       return;
     }
-    if(!mongoose.Types.ObjectId.isValid(senderId)){
+    if (!mongoose.Types.ObjectId.isValid(senderId)) {
       return;
     }
     await Message.updateMany(
@@ -22,7 +25,7 @@ export const registerMessageHandlers = (io, socket, onlineUser, socketToUser) =>
       { $set: { seen: true } },
     );
 
-    const senderSocketId = onlineUser[senderId];
+    const senderSocketId = await redis_client.get(`online:${senderId}`);
 
     if (senderSocketId) {
       socket.to(senderSocketId).emit("update-seen", {
@@ -32,25 +35,26 @@ export const registerMessageHandlers = (io, socket, onlineUser, socketToUser) =>
     }
   });
 
-
- 
   socket.on("emoji-reaction", async (data) => {
-    const {messageId , emoji} = data;
+    const { messageId, emoji } = data;
     const userId = socket.user.id;
-    if(!messageId || !emoji){
+
+    if (!messageId || !emoji) {
       return;
     }
-    if(!mongoose.Types.ObjectId.isValid(messageId)){
-        return;
+    if (!mongoose.Types.ObjectId.isValid(messageId)) {
+      return;
     }
     const msg = await Message.findById(messageId);
-    
-    if(!msg){
+
+    if (!msg) {
       return;
     }
-    const isParticipant  = msg.senderId.toString() === userId || msg.receiverId.toString() === userId;
+    // console.log(typeof(msg.senderId) , msg.senderId , typeof(msg.receiverId) , msg.receiverId );
+    // console.log(typeof(userId) , userId );
+    const isParticipant = msg.senderId?.toString() === userId ||  msg.receiverId?.toString() === userId;
 
-    if(!isParticipant){
+    if (!isParticipant) {
       return;
     }
     const existingReaction = msg.reactions.find(
@@ -60,7 +64,7 @@ export const registerMessageHandlers = (io, socket, onlineUser, socketToUser) =>
     if (!existingReaction) {
       msg.reactions.push({
         userId,
-        emoji
+        emoji,
       });
     } else if (existingReaction.emoji === emoji) {
       msg.reactions = msg.reactions.filter(
@@ -72,8 +76,8 @@ export const registerMessageHandlers = (io, socket, onlineUser, socketToUser) =>
 
     await msg.save();
 
-    const user1 = onlineUser[msg.senderId];
-    const user2 = onlineUser[msg.receiverId];
+    const user1 = await redis_client.get(`online:${msg.senderId}`);
+    const user2 = await redis_client.get(`online:${msg.receiverId}`);
 
     if (user1) {
       io.to(user1).emit("reaction-updated", {
@@ -90,130 +94,126 @@ export const registerMessageHandlers = (io, socket, onlineUser, socketToUser) =>
     }
   });
 
-
   socket.on("delete-message", async (data) => {
-  const { msgId } = data;
-  const userId = socket.user.id;
+    const { msgId } = data;
+    const userId = socket.user.id;
 
-  if (!msgId) {
-    return;
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(msgId)) {
-    return;
-  }
-
-  const msg = await Message.findById(msgId);
-
-  if (!msg) {
-    return;
-  }
-
-  if (msg.senderId.toString() !== userId) {
-    return;
-  }
-
-  if (msg.deletedforEveryone) {
-    return;
-  }
-
-  await Message.updateOne(
-    { _id: msgId },
-    {
-      $set: {
-        deletedforEveryone: true,
-      },
+    if (!msgId) {
+      return;
     }
-  );
 
-  const receiverSocketId =
-    onlineUser[msg.receiverId.toString()];
+    if (!mongoose.Types.ObjectId.isValid(msgId)) {
+      return;
+    }
 
-  if (receiverSocketId) {
-    io.to(receiverSocketId).emit("message-deleted", {
+    const msg = await Message.findById(msgId);
+
+    if (!msg) {
+      return;
+    }
+
+    if (msg.senderId.toString() !== userId) {
+      return;
+    }
+
+    if (msg.deletedforEveryone) {
+      return;
+    }
+
+    await Message.updateOne(
+      { _id: msgId },
+      {
+        $set: {
+          deletedforEveryone: true,
+        },
+      },
+    );
+
+    const receiverSocketId = await redis_client.get(`online:${msg.receiverId}`);
+
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("message-deleted", {
+        msgId,
+      });
+    }
+
+    socket.emit("message-deleted", {
       msgId,
     });
-  }
-
-  socket.emit("message-deleted", {
-    msgId,
   });
-});
-
 
   socket.on("msg-send", async (data) => {
+  try {
     const senderId = socket.user.id;
     const { receiverId, message, image, audio, replyTo } = data;
+
+
+
+    if (!receiverId) return;
+
+    if (!mongoose.Types.ObjectId.isValid(receiverId)) return;
+
     const receiver = await User.findById(receiverId);
 
-    if(!receiver){
-      return;
-    }
-    if(!receiverId){
-      return ;
-    }
-    if(!mongoose.Types.objectId.isValid(receiverId)){
-      return;
-    }
-    if(!message && !image && !audio){
-       return;
-    }
+    if (!receiver) return;
 
-    if(message && message.lenght > 5000){
-      return;
-    }
+    if (!message && !image && !audio) return;
+
+    if (message && message.length > 5000) return;
+
     const newMessage = new Message({
-      senderId: data.senderId,
-      receiverId: data.receiverId,
-      message: data.message,
-      imageUrl: data.image,
-      audioUrl: data.audio,
-      replyTo: data.replyTo,
+      senderId,
+      receiverId,
+      message,
+      imageUrl: image,
+      audioUrl: audio,
+      replyTo,
     });
-
-    await User.updateOne(
-      { _id: senderId },
-      { $set: { lastMessage: data.message } },
-    );
-
-    await User.updateOne(
-      { _id: data.receiverId },
-      { $set: { lastMessage: data.message } },
-    );
 
     await newMessage.save();
 
-    await newMessage.populate(
-      "senderId",
-      "profilePic username"
+    await newMessage.populate("senderId", "profilePic username");
+
+    const receiverSocketId = await redis_client.get(
+      `online:${receiverId}`
     );
 
-    const receiverSocketId = onlineUser[data.receiverId];
-    const senderSocketId = onlineUser[senderId];
+    const senderSocketId = await redis_client.get(
+      `online:${senderId}`
+    );
 
-    io.to(senderSocketId).emit("msg-sent", {
-      ...newMessage.toObject(),
-      delivered: receiverSocketId ? true : false,
-    });
+
+
+    if (senderSocketId) {
+      io.to(senderSocketId).emit("msg-sent", {
+        ...newMessage.toObject(),
+        delivered: !!receiverSocketId,
+      });
+    }
 
     if (receiverSocketId) {
+  
+
       io.to(receiverSocketId).emit(
         "receive-message",
         newMessage
       );
-    }
-  });
+    } 
 
+  } catch (err) {
+    console.error("msg-send error:", err);
+  }
+});
 
   socket.on("msg-delivered", async (data) => {
-    const {messageId} = data;
+    const { messageId } = data;
     const senderId = socket.user.id;
 
-    if(!messageId){
+    if (!messageId) {
       return;
     }
     const msg = await Message.findById(messageId);
-    if(!msg){
+    if (!msg) {
       return;
     }
     await Message.updateOne(
@@ -221,50 +221,44 @@ export const registerMessageHandlers = (io, socket, onlineUser, socketToUser) =>
       { $set: { delivered: true } },
     );
 
-    const senderSocketId = onlineUser[senderId];
-
+    // const senderSocketId = onlineUser[senderId];
+    const senderSocketId = await redis_client.get(`online:${senderId}`);
     if (senderSocketId) {
-      socket
-        .to(senderSocketId)
-        .emit("message-delivered", {
-          messageId: data.messageId,
-        });
+      socket.to(senderSocketId).emit("message-delivered", {
+        messageId: data.messageId,
+      });
     }
   });
 
-
   socket.on("user-typing", async (data) => {
     const senderId = socket.user.id;
-    const {receiverId} = data;
-    if(!receiverId || !mongoose.Types.ObjectId.isValid(receiverId)){
+    const { receiverId } = data;
+    if (!receiverId || !mongoose.Types.ObjectId.isValid(receiverId)) {
       return;
     }
-    const receiverSocketId = onlineUser[receiverId];
-    if(!receiverSocketId){
+    // const receiverSocketId = onlineUser[receiverId];
+    const receiverSocketId = await redis_client.get(`online:${receiverId}`);
+    if (!receiverSocketId) {
       return;
     }
     if (receiverSocketId) {
-      socket
-        .to(receiverSocketId)
-        .emit("user-typing", data);
+      socket.to(receiverSocketId).emit("user-typing", data);
     }
   });
 
   socket.on("stop-typing", async (data) => {
     const senderId = socket.user.id;
     const { receiverId } = data;
-    if(!receiverId || !mongoose.Types.ObjectId.isValid(receiverId)){
+    if (!receiverId || !mongoose.Types.ObjectId.isValid(receiverId)) {
       return;
     }
-    const receiverSocketId = onlineUser[data.receiverId];
-    if(!receiverSocketId){
-        return;
+    // const receiverSocketId = onlineUser[data.receiverId];
+    const receiverSocketId = await redis_client.get(`online:${receiverId}`);
+    if (!receiverSocketId) {
+      return;
     }
     if (receiverSocketId) {
-      socket
-        .to(receiverSocketId)
-        .emit("stop-typing", data);
+      socket.to(receiverSocketId).emit("stop-typing", data);
     }
   });
-
 };

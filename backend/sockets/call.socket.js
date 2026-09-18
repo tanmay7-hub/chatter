@@ -1,9 +1,11 @@
-export const registerCallHandlers = (io, socket, onlineUser) => {
+export const registerCallHandlers = (io, socket , redis_client) => {
 
-  socket.on("call-user", (data) => {
+  socket.on("call-user",async(data) => {
     const {to , caller} = data;
     if(!caller || !to) return;
-    const socketId = onlineUser[to];
+    // const socketId = onlineUser[to];
+    // console.log("redis:" , redis_client);
+    const socketId  = await redis_client.get(`online:${to}`);
     if(!socketId)return;
     if (socketId) {
       socket.to(socketId).emit("incoming-call", caller);
@@ -11,22 +13,24 @@ export const registerCallHandlers = (io, socket, onlineUser) => {
   });
 
 
-  socket.on("call-accepted", (data) => {
+  socket.on("call-accepted", async(data) => {
     const { to } = data;
     if(!to)return;
-    const socketId = onlineUser[to];
+    // const socketId = onlineUser[to];
+     const socketId  = await redis_client.get(`online:${to}`);
     if(!socketId)return;
     if (socketId) {
       socket.to(socketId).emit("call-accepted");
     }
   });
 
-  socket.on("call-rejected", (data) => {
+  socket.on("call-rejected", async(data) => {
     const { to } = data;
     if(!to){
       return;
     }
-    const socketId = onlineUser[to];
+    // const socketId = onlineUser[to];
+     const socketId  = await redis_client.get(`online:${to}`);
     if(!socketId){
       return;
     }
@@ -37,25 +41,27 @@ export const registerCallHandlers = (io, socket, onlineUser) => {
 
 
 
-  socket.on("call-end", (data) => {
+  socket.on("call-end", async(data) => {
     const { to } = data;
     if(!to){
       return;
     }
-    const socketId = onlineUser[to];
-    if(!socketId)retur;
+    // const socketId = onlineUser[to];
+     const socketId  = await redis_client.get(`online:${to}`);
+    if(!socketId)return;
     if (socketId) {
       socket.to(socketId).emit("call-end");
     }
   });
 
 
-  socket.on("offer", (data) => {
+  socket.on("offer", async(data) => {
     const {to , from , offer} = data;
     if(!to || !from || !offer){
       return;
     }
-    const socketId = onlineUser[to];
+    // const socketId = onlineUser[to];
+     const socketId  = await redis_client.get(`online:${to}`);
     if(!socketId){
       return;
     }
@@ -68,7 +74,7 @@ export const registerCallHandlers = (io, socket, onlineUser) => {
   });
 
 
-  socket.on("answer", (data) => {
+  socket.on("answer", async(data) => {
     const { to, answer } = data; 
     if(!to || !answer){
       return;
@@ -84,12 +90,13 @@ export const registerCallHandlers = (io, socket, onlineUser) => {
 
 
 
-  socket.on("ice-candidate", (data) => {
+  socket.on("ice-candidate", async(data) => {
     const { to, candidate } = data;
     if(!to || !candidate){
       return;
     }
-    const socketId = onlineUser[to];
+    // const socketId = onlineUser[to];
+    const socketId  = await redis_client.get(`online:${to}`);
     if(!socketId){
       return;
     }

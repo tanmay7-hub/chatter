@@ -10,19 +10,25 @@ import {initializeSocket} from "./sockets/socket.js"
 dotenv.config();
 const app = express();
 const server = http.createServer(app);
-initializeSocket(server);
 
 const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 app.use(userRoutes);
 
-server.listen(PORT, async () => {
-  try {
-    console.log(`listening on port ${PORT}`);
+const startServer = async()=>{
+  try{
     await mongoose.connect(process.env.MONGO_URI);
     console.log("connected to mongodb");
-  } catch (e) {
-    console.log(e);
+    await initializeSocket(server);
+
+    server.listen(PORT , ()=>{
+          console.log(`listening on port ${PORT}`);
+    });
+  }catch(e){
+     console.error("MongoDB connection failed:", err);
+    process.exit(1);
   }
-});
+}
+startServer();
+

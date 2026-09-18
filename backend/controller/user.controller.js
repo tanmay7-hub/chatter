@@ -6,7 +6,6 @@ import jwt from "jsonwebtoken";
 import mongoose from "mongoose";
 import cloudinary from "../config/cloudinary.js";
 
-
 export const setStatusOnline = async (data) => {
   try {
     await User.UpdateOne({ _id: data.userId }, { $set: { isOnline: true } });
@@ -65,7 +64,7 @@ export const myGroups = async (req, res) => {
   }
 };
 export const photoUpload = async (req, res) => {
-  try { 
+  try {
     if (!req.file) {
       return res.status(400).json({ msg: "image not provided" });
     }
@@ -265,26 +264,26 @@ export const createGroup = async (req, res) => {
 
 export const updateProfile = async (req, res) => {
   try {
-    console.log("update profile hit" , req.body);
-    const { username, about , profilePic} = req.body;
+    console.log("update profile hit", req.body);
+    const { username, about, profilePic } = req.body;
 
     const user = await User.findById(req.user.id);
 
     if (!user) {
       return res.status(404).json({
-        msg: "user not found"
+        msg: "user not found",
       });
     }
 
     if (username !== undefined && username.trim() !== user.username) {
       const existingUser = await User.findOne({
         username: username.trim(),
-        _id: { $ne: user._id }
+        _id: { $ne: user._id },
       });
 
       if (existingUser) {
         return res.status(409).json({
-          msg: "username already exists"
+          msg: "username already exists",
         });
       }
 
@@ -294,7 +293,7 @@ export const updateProfile = async (req, res) => {
     if (about !== undefined) {
       user.about = about.trim();
     }
-    if(profilePic !== undefined){
+    if (profilePic !== undefined) {
       user.profilePic = profilePic;
     }
 
@@ -307,14 +306,13 @@ export const updateProfile = async (req, res) => {
         username: user.username,
         email: user.email,
         about: user.about,
-        profilePic: user.profilePic
-      }
+        profilePic: user.profilePic,
+      },
     });
-
   } catch (err) {
     return res.status(500).json({
       msg: "error while updating profile",
-      err: err.message
+      err: err.message,
     });
   }
 };
@@ -339,19 +337,64 @@ export const getCurrUser = async (req, res) => {
 
 export const getChat = async (req, res) => {
   try {
-    const { reqId } = req.query;
+    const { reqId, before, limit = 30 } = req.query;
     const userId = req.user.id;
 
-    let allMessages = await Message.find({
-      $or: [{ senderId: userId }, { senderId: reqId }],
-    });
+    if (!reqId) {
+      return res.status(400).json({
+        msg: "ReceiverID is required",
+      });
+    }
 
-    allMessages = allMessages.filter((msg) => {
-      return msg.receiverId == reqId || msg.receiverId == userId;
-    });
+    if (!mongoose.Types.ObjectId.isValid(reqId)) {
+      return res.status(400).json({
+        msg: "Invalid Receiver ID",
+      });
+    }
+
+    const messageLimit = Math.min(parseInt(limit) || 30, 50);
+
+    const query = {
+      $or: [
+        { senderId: userId, receiverId: reqId },
+        { senderId: reqId, receiverId: userId },
+      ],
+    };
+
+    if (before) {
+      if (!mongoose.Types.ObjectId.isValid(before)) {
+        return res.status(400).json({
+          msg: "Invalid Cursor",
+        });
+      }
+      const cursor_message = await Message.findById(before).select("createdAt");
+
+      if (!cursor_message) {
+        return res.status(400).json({
+          msg: "Invalid cursor",
+        });
+      }
+
+      query.createdAt = {
+        $lt: cursor_message.createdAt,
+      };
+    }
+    const messages = await Message.find(query)
+      .sort({ createdAt: -1 })
+      .limit(messageLimit + 1);
+
+    const hasMore = messages.length > messageLimit;
+
+    if (hasMore) {
+      messages.pop();
+    }
+    messages.reverse();
+
     return res.status(200).json({
       msg: "messages fetched",
-      allMessages,
+      allMessages: messages,
+      hasMore,
+      nextCursor: hasMore ? messages[0]._id : null,
     });
   } catch (err) {
     return res.status(500).json({
@@ -369,11 +412,11 @@ export const sendMessage = async (req, res) => {
       return res.status(400).json({ msg: "message is empty" });
     }
     const userId = req.user.id;
-    if(!mongoose.Types.ObjectId.isValid(receiverId)){
-      return res.status(400).json({msg : "Authentication Error"});
+    if (!mongoose.Types.ObjectId.isValid(receiverId)) {
+      return res.status(400).json({ msg: "Authentication Error" });
     }
-    if(!userId || !mongoose.Types.ObjectId.isValid(userId) ){
-      return res.status(400).json({msg:"Authentication Error"});
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ msg: "Authentication Error" });
     }
     const newMessage = new Message({
       senderId: userId,

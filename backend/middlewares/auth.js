@@ -5,7 +5,7 @@ export const protect = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!authHeader || !authHeader.startsWith("bearer ")) {
       return res.status(401).json({ msg: "Authentication required" }); 
     }
 

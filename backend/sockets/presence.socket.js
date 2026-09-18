@@ -1,11 +1,10 @@
 import User from "../models/user.model.js";
 import Message from "../models/message.model.js";
-
 export const registerPresenceHandlers = (
   io,
   socket,
-  onlineUser,
-  socketToUser
+  socketToUser,
+  redis_client
 ) => {
 
 
@@ -17,7 +16,8 @@ export const registerPresenceHandlers = (
       { $set: { isOnline: true } }
     );
 
-    onlineUser[userId] = socket.id;
+    // onlineUser[userId] = socket.id;
+    await redis_client.set(`online:${userId}` , socket.id);
     socketToUser[socket.id] = userId;
 
 
@@ -37,8 +37,10 @@ export const registerPresenceHandlers = (
     );
 
     for (const msg of messages) {
-      const senderSocketId = onlineUser[msg.senderId];
-
+      const {senderId} = msg;
+      
+      const senderSocketId = await redis_client.get(`online:${senderId}`);
+      
       if (senderSocketId) {
         io.to(senderSocketId).emit("message-delivered", {
           messageId: msg._id,
@@ -69,7 +71,11 @@ export const registerPresenceHandlers = (
       }
     );
 
-    delete onlineUser[userId];
+    // delete onlineUser[userId];
+    const currentSocketId = await redis_client.get(`online:${userId}`);
+    if(currentSocketId === socket.id){
+         await redis_client.del(`online:${userId}`);
+    }
     delete socketToUser[socket.id];
 
     io.emit("refresh-users");
