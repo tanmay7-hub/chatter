@@ -9,9 +9,12 @@ export const registerMessageHandlers = (
 ) => {
   socket.on("chat-opened", async (data) => {
     const { receiverId } = data;
-    const senderId = data.senderId._id;
+    const senderId = typeof data.senderId === "object"
+        ? data.senderId?._id
+        : data.senderId; 
     console.log("inside chat opened");
-
+    
+    console.log(data);
     if (!senderId || !receiverId) {
       return;
     }
@@ -19,6 +22,7 @@ export const registerMessageHandlers = (
       return;
     }
     // console.log( "senderId :" , senderId ); console.log("receiverId" , receiverId);
+    
     await Message.updateMany(
       {
         senderId,
@@ -52,8 +56,7 @@ export const registerMessageHandlers = (
     if (!msg) {
       return;
     }
-    // console.log(typeof(msg.senderId) , msg.senderId , typeof(msg.receiverId) , msg.receiverId );
-    // console.log(typeof(userId) , userId );
+
     const isParticipant = msg.senderId?.toString() === userId ||  msg.receiverId?.toString() === userId;
 
     if (!isParticipant) {
@@ -80,13 +83,14 @@ export const registerMessageHandlers = (
 
     const user1 = await redis_client.get(`online:${msg.senderId}`);
     const user2 = await redis_client.get(`online:${msg.receiverId}`);
+    
 
-    if (user1) {
-      io.to(user1).emit("reaction-updated", {
+   
+      socket.emit("reaction-updated", {
         messageId: msg._id,
         reactions: msg.reactions,
       });
-    }
+   
 
     if (user2) {
       io.to(user2).emit("reaction-updated", {
