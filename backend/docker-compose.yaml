@@ -1,0 +1,16 @@
+services:
+  backend:
+    build: .
+    container_name: chatter-backend
+    env_file:
+      - .env
+    ports:
+      - "5000:5000"
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    container_name: chatter-redis
+    ports:
+      - "6379:6379"

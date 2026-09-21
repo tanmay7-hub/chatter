@@ -26,6 +26,7 @@ import {
   updateDeliveryStatus,
   updateMessageSeenStatus,
   UnreadIncrement,
+  clearUnreadCount,
   deleteMessage,
   updateReaction,
   setCurrentConversation,
@@ -124,7 +125,7 @@ function Chat() {
       }),
     );
   };
-  const groups = auth.allGroups;
+  const groups       = auth.allGroups;
   const filteredUsers = users.filter((user) =>
     user.username.toLowerCase().includes(search.toLowerCase()),
   );
@@ -148,7 +149,6 @@ function Chat() {
     const handleIncomingCall = (data) => {
       setIncomingCallDetail(data);
       setShowIncomingScreen(true);
-      console.log(data);
       setIsVideoCall(data.isVideoCall);
     };
     socket.on("incoming-call", handleIncomingCall);
@@ -164,7 +164,6 @@ function Chat() {
     setShowVideoCall(false);
     const to = (isCaller == true) ? callData.id : incomingCallDetail.id;
 
-    console.log(to);
     socket.emit("call-end", {
       to
     });
@@ -435,7 +434,7 @@ function Chat() {
   }, []);
   useEffect(() => {
     socket.on("msg-sent", (data) => {
-      console.log("msg-sent", data);
+
       dispatch(addMessage(data));
     });
     return () => {
@@ -459,7 +458,7 @@ function Chat() {
   }, []);
   useEffect(() => {
     if (localStorage.getItem("token") !== null) {
-      dispatch(getUser());
+      // dispatch(getUser());
       if (auth.userClicked) {
         messageEndRef.current.scrollIntoView({
           behavior: "auto",
@@ -481,67 +480,86 @@ function Chat() {
       socket.emit("user-logged-in", { id: auth.UserId });
     }
   }, [auth.UserId]);
+
   //receiving message from socket
+
   useEffect(() => {
-    socket.on("receive-message", (data) => {
-      if (conversation.type === "user" && conversation.id === data.senderId) {
-        dispatch(addMessage(data));
-        socket.emit("msg-delivered", {
-          messageId: data._id,
-          senderId: data.senderId,
-        });
+  const handleReceiveMessage = (data) => {
+    const senderId =
+      typeof data.senderId === "object"
+        ? data.senderId?._id
+        : data.senderId;
 
-        socket.emit("chat-opened", {
-          senderId: data.senderId,
-          receiverId: data.receiverId,
-        });
-      } else {
-        dispatch(UnreadIncrement(data));
-      }
-    });
-    socket.on("receive-group-message", (data) => {
-      if (conversation.type === "group" && conversation.id === data.groupId) {
-        console.log("receive-group-message", data);
-        dispatch(addMessage(data));
-      } else {
-        dispatch(groupUnreadIncrement(data));
-      }
-    });
+    if (
+      conversation?.type === "user" &&
+      conversation?.id?.toString() === senderId?.toString()
+    ) {
+      dispatch(addMessage(data));
 
-    return () => {
-      socket.off("receive-message");
-      socket.off("receive-group-message");
-    };
-  }, [conversation.id, conversation.type]);
+      socket.emit("msg-delivered", {
+        messageId: data._id,
+      });
+
+      socket.emit("chat-opened", {
+        senderId,
+        receiverId: data.receiverId,
+      });
+    } else {
+      dispatch(UnreadIncrement(data));
+    }
+  };
+
+  const handleGroupMessage = (data) => {
+    if (
+      conversation?.type === "group" &&
+      conversation?.id?.toString() === data.groupId?.toString()
+    ) {
+      dispatch(addMessage(data));
+    } else {
+      dispatch(UnreadIncrement(data));
+    }
+  };
+
+  socket.on("receive-message", handleReceiveMessage);
+  socket.on("receive-group-message", handleGroupMessage);
+
+  return () => {
+    socket.off("receive-message", handleReceiveMessage);
+    socket.off("receive-group-message", handleGroupMessage);
+  };
+}, [conversation?.id, conversation?.type, dispatch]);
 
   //typing indicator
   useEffect(() => {
-    const handleTyping = (data) => {
+  const handleTyping = (data) => {
+    if (
+      conversation?.type === "user" &&
+      conversation?.id?.toString() === data.senderId?.toString()
+    ) {
       settypingUserId(data.senderId);
-
       messageEndRef.current?.scrollIntoView({
-        behavior: "auto",
+          behavior: "auto",
       });
-    };
+    }
+  };
 
-    const handleStopTyping = () => {
+  const handleStopTyping = (data) => {
+    if (
+      conversation?.type === "user" &&
+      conversation?.id?.toString() === data.senderId?.toString()
+    ) {
       settypingUserId(null);
-    };
+    }
+  };
 
-    socket.on("user-typing", handleTyping);
-    socket.on("stop-typing", handleStopTyping);
+  socket.on("user-typing", handleTyping);
+  socket.on("stop-typing", handleStopTyping);
 
-    socket.on("group-typing", handleTyping);
-    socket.on("stop-group-typing", handleStopTyping);
-
-    return () => {
-      socket.off("user-typing", handleTyping);
-      socket.off("stop-typing", handleStopTyping);
-
-      socket.off("group-typing", handleTyping);
-      socket.off("stop-group-typing", handleStopTyping);
-    };
-  }, []);
+  return () => {
+    socket.off("user-typing", handleTyping);
+    socket.off("stop-typing", handleStopTyping);
+  };
+}, [conversation?.id, conversation?.type]);
   // delivery status updating in ui
   useEffect(() => {
     socket.on("message-delivered", (data) => {
@@ -556,14 +574,15 @@ function Chat() {
   // msg seen update
   useEffect(() => {
     socket.on("update-seen", (data) => {
-      if (conversation.type === "user" && conversation.id === data.receiverId) {
+      if (conversation.type === "user" && conversation.id?.toString() === data.receiverId?.toString()) {
+;
         dispatch(updateMessageSeenStatus(data));
       }
     });
     return () => {
       socket.off("update-seen");
     };
-  }, [conversation.id, conversation.type]);
+  }, [conversation , dispatch]);
   //menu close effect in useRef
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -693,9 +712,10 @@ function Chat() {
                               members: [],
                             }),
                           );
-
+                          dispatch(clearUnreadCount(user._id));
                           socket.emit("chat-opened", {
                             senderId: user._id,
+                            receiverId :auth.UserId,
                           });
                           dispatch(getChat({ reqId: user._id }));
                         }}
@@ -920,9 +940,25 @@ function Chat() {
                               <i>This message was deleted</i>
                             </div>
                           )}
+                          {!m.deletedforEveryone && m.reactions?.length > 0 && (
+                          <div className="reaction-container">
+                            {Object.entries(
+                              m.reactions.reduce((acc, r) => {
+                                acc[r.emoji] = (acc[r.emoji] || 0) + 1;
+                                return acc;
+                              }, {}),
+                            ).map(([emoji, count]) => (
+                              <span>
+                                {emoji} {count}
+                              </span>
+                            ))}
+                          </div>
+                        )}
                         </div>
                       </div>
                     ) : (
+                      //  our message 
+
                       <div
                         key={m._id}
                         onContextMenu={(e) => {

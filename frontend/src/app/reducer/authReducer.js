@@ -74,6 +74,7 @@ const counterSlice = createSlice({
       state.userClicked = !state.userClicked;
     },
     updateReaction: (state, action) => {
+    
       const { messageId, reactions } = action.payload;
 
       const msg = state.currChat.find((m) => m._id === messageId);
@@ -83,7 +84,9 @@ const counterSlice = createSlice({
       }
     },
     UnreadIncrement: (state, action) => {
-      const { senderId } = action.payload;
+      const data = action.payload;
+      const senderId =
+        typeof data.senderId === "object" ? data.senderId._id : data.senderId;
 
       state.allUser = state.allUser.map((user) => {
         return user._id == senderId
@@ -94,6 +97,18 @@ const counterSlice = createSlice({
             }
           : user;
       });
+    },
+    clearUnreadCount: (state, action) => {
+      const userId = action.payload;
+
+      state.allUser = state.allUser.map((user) =>
+        user._id.toString() === userId.toString()
+          ? {
+              ...user,
+              unreadCount: 0,
+            }
+          : user,
+      );
     },
     groupUnreadIncrement: (state, action) => {
       const { groupId, message } = action.payload;
@@ -112,7 +127,18 @@ const counterSlice = createSlice({
       const { senderId, receiverId } = action.payload;
 
       state.currChat.forEach((msg) => {
-        if (msg.senderId === senderId && msg.receiverId === receiverId) {
+        const msgSenderId =
+          typeof msg.senderId === "object" ? msg.senderId._id : msg.senderId;
+
+        const msgReceiverId =
+          typeof msg.receiverId === "object"
+            ? msg.receiverId._id
+            : msg.receiverId;
+
+        if (
+          msgSenderId?.toString() === senderId?.toString() &&
+          msgReceiverId?.toString() === receiverId?.toString()
+        ) {
           msg.seen = true;
         }
       });
@@ -334,6 +360,7 @@ export const {
   updateReaction,
   setCurrentConversation,
   updateClickedStatus,
+  clearUnreadCount,
 } = counterSlice.actions;
 
 export default counterSlice.reducer;
