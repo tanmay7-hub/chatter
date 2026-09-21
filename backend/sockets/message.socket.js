@@ -8,15 +8,17 @@ export const registerMessageHandlers = (
   redis_client,
 ) => {
   socket.on("chat-opened", async (data) => {
-    const { senderId } = data;
-    const receiverId = socketToUser[socket.id];
+    const { receiverId } = data;
+    const senderId = data.senderId._id;
+    console.log("inside chat opened");
 
-    if (!senderId) {
+    if (!senderId || !receiverId) {
       return;
     }
     if (!mongoose.Types.ObjectId.isValid(senderId)) {
       return;
     }
+    // console.log( "senderId :" , senderId ); console.log("receiverId" , receiverId);
     await Message.updateMany(
       {
         senderId,
@@ -26,7 +28,7 @@ export const registerMessageHandlers = (
     );
 
     const senderSocketId = await redis_client.get(`online:${senderId}`);
-
+    console.log("senderSocket Id : ", senderSocketId);
     if (senderSocketId) {
       socket.to(senderSocketId).emit("update-seen", {
         senderId,
@@ -192,8 +194,6 @@ export const registerMessageHandlers = (
     }
 
     if (receiverSocketId) {
-  
-
       io.to(receiverSocketId).emit(
         "receive-message",
         newMessage

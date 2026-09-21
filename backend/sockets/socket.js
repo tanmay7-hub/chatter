@@ -46,8 +46,12 @@ export const initializeSocket = async(server) => {
       next(new Error("Invalid token"));
     }
   });
-
+  
+  
   io.on("connection", (socket) => {
+    
+    // redis_client.set(`online:${}`)
+    socket.emit("user-logged-in");
     console.log(`socket connected: ${socket.id}`);
     registerMessageHandlers(io, socket,  socketToUser , redis_client);
     registerGroupHandlers(io, socket,  redis_client);
@@ -55,5 +59,12 @@ export const initializeSocket = async(server) => {
     registerPresenceHandlers(io, socket,  socketToUser , redis_client);
   });
 
-  return io;
+  const closeSocket = async()=>{
+       await io.close();
+       await pubClient.quit();
+       await subClient.quit();
+       await redis_client.quit();
+  };
+
+  return {io , closeSocket};
 };

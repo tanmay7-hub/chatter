@@ -15,7 +15,11 @@ export const registerPresenceHandlers = (
       { _id: userId },
       { $set: { isOnline: true } }
     );
-
+    
+    const oldSocketId = await redis_client.get(`online:${userId}`);
+    if(oldSocketId && oldSocketId !== socket.id){
+       await redis_client.del(`online:${userId}`);
+    }
     // onlineUser[userId] = socket.id;
     await redis_client.set(`online:${userId}` , socket.id);
     socketToUser[socket.id] = userId;
@@ -71,7 +75,6 @@ export const registerPresenceHandlers = (
       }
     );
 
-    // delete onlineUser[userId];
     const currentSocketId = await redis_client.get(`online:${userId}`);
     if(currentSocketId === socket.id){
          await redis_client.del(`online:${userId}`);

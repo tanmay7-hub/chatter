@@ -4,8 +4,7 @@ import mongoose from "mongoose";
 import userRoutes from "./routes/user.routes.js";
 import http from "http";
 import cors from "cors";
-import {initializeSocket} from "./sockets/socket.js"
-
+import { initializeSocket } from "./sockets/socket.js";
 
 dotenv.config();
 const app = express();
@@ -16,19 +15,36 @@ app.use(cors());
 app.use(express.json());
 app.use(userRoutes);
 
-const startServer = async()=>{
-  try{
+let closeSocket;
+const startServer = async () => {
+  try {
     await mongoose.connect(process.env.MONGO_URI);
     console.log("connected to mongodb");
-    await initializeSocket(server);
-
-    server.listen(PORT , ()=>{
-          console.log(`listening on port ${PORT}`);
+    const socketInstance = await initializeSocket(server);
+    closeSocket = socketInstance.closeSocket;
+    server.listen(PORT, () => {
+      console.log(`listening on port ${PORT}`);
     });
-  }catch(e){
-     console.error("MongoDB connection failed:", err);
+  } catch (e) {
+    console.error("MongoDB connection failed:", err);
     process.exit(1);
   }
-}
+};
 startServer();
 
+const shutDown = async (signal) => {
+  console.log(`${signal} received . Shutting down.`);
+  server.close(async () => {
+    try {
+      await closeSocket();
+      await mongoose.connection.close();
+
+      process.exit(0);
+    } catch (e) {
+      console.log("error in shutting down");
+      process.exit(1);
+    }
+  });
+};
+process.on("SIGTERM", () => shutDown("SIGTERM"));
+process.on("SIGINT", () => shutDown("SIGINT"));
