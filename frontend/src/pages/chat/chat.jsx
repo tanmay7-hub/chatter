@@ -735,7 +735,7 @@ function Chat() {
                                 user.unreadCount > 0 ? "#0f0101e8" : "#777",
                             }}
                           >
-                            {user.lastMessage}
+                            {user.about}
                           </p>
                         </div>
                         {user.unreadCount > 0 && (
